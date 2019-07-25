@@ -3,7 +3,7 @@
 
 import time
 import datetime
-import urllib2
+import urllib.request
 from odoo.exceptions import except_orm, ValidationError
 from odoo.osv import expression
 from odoo.tools import misc, DEFAULT_SERVER_DATETIME_FORMAT
@@ -361,7 +361,6 @@ class HotelFolio(models.Model):
     _description = 'hotel folio new'
     _rec_name = 'order_id'
     _order = 'id'
-    _inherit = ['ir.needaction_mixin']
 
     name = fields.Char('Folio Number', readonly=True, index=True,
                        default='New')
@@ -624,7 +623,7 @@ class HotelFolio(models.Model):
         @param self: object pointer
         '''
         for folio in self:
-            folio.order_id.button_dummy()
+            folio.sale.order_id.button_dummy()
         return True
 
     @api.multi
@@ -681,14 +680,13 @@ class HotelFolio(models.Model):
     def action_confirm(self):
         for order in self.order_id:
             order.state = 'sale'
-            order.order_line._action_procurement_create()
-            if not order.project_id:
+            if not order.analytic_account_id:
                 for line in order.order_line:
                     if line.product_id.invoice_policy == 'cost':
                         order._create_analytic_account()
                         break
-        if self.env['ir.values'].get_default('sale.config.settings',
-                                             'auto_done_setting'):
+        config_parameter_obj = self.env['ir.config_parameter']
+        if config_parameter_obj.sudo().get_param('sale.auto_done_setting'):
             self.order_id.action_done()
 
     @api.multi
@@ -785,7 +783,7 @@ class HotelFolioLine(models.Model):
         @return: raise warning depending on the validation
         '''
         if self.checkin_date >= self.checkout_date:
-                raise ValidationError(_('Room line Check In Date Should be \
+            raise ValidationError(_('Room line Check In Date Should be \
                 less than the Check Out Date!'))
         if self.folio_id.date_order and self.checkin_date:
             if self.checkin_date <= self.folio_id.date_order:
@@ -1247,7 +1245,7 @@ class CurrencyExchangeRate(models.Model):
         try:
             url = 'http://finance.yahoo.com/d/quotes.csv?s=%s%s=X&f=l1' % (a,
                                                                            b)
-            rate = urllib2.urlopen(url).read().rstrip()
+            rate = urllib.request.urlopen(url).read().rstrip()
             return Decimal(rate)
         except:
             return Decimal('-1.00')
